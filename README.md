@@ -2,8 +2,6 @@
 
 Ein Dorf-Spiel, ausgedacht von Younes (12): Felder bestellen, Bäume fällen, eine Brücke über den Fluss bauen, auf dem Markt handeln, Häuser einrichten, im Hafen angeln, in der Grotte kämpfen und mit Pferden oder Fahrrädern unterwegs sein. Es gibt eine normale Ansicht, eine 3D-Ansicht und eine Karte.
 
-Spielbar unter <https://bambozya.github.io/dorf-spiel/>.
-
 ## Spielen und Server starten
 
 Das Spiel läuft online mit mehreren Spielern. Dafür gibt es einen kleinen Spielserver in `server/` (Node 18 oder neuer, eine Abhängigkeit: `ws`). Er liefert die Spieldateien aus und hält unter `/ws` die Verbindung zu allen Spielern: Passwort, wer gerade online ist, und den gemeinsamen Spielstand.
