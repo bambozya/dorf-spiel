@@ -1,0 +1,8 @@
+.git
+.github
+deploy
+server/node_modules
+server/data
+server/.env
+server/test
+.DS_Store
