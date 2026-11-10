@@ -32,9 +32,26 @@ export class Store {
 
   saveNow() {
     const tmp = this.file + '.tmp';
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(tmp, JSON.stringify({ collections: this.collections }));
-    fs.renameSync(tmp, this.file);
+    try {
+      fs.mkdirSync(path.dirname(this.file), { recursive: true });
+      fs.writeFileSync(tmp, JSON.stringify({ collections: this.collections }));
+      fs.renameSync(tmp, this.file);
+    } catch (e) {
+      // Nicht abstürzen: das Spiel läuft weiter, nur ohne Sicherung. Der nächste Versuch kommt bald.
+      console.error('Spielstand konnte nicht gesichert werden:', e.message);
+    }
+  }
+
+  // Beim Start prüfen, ob das Datenverzeichnis beschreibbar ist, damit das Problem sofort im Log steht.
+  checkWritable() {
+    try {
+      fs.mkdirSync(path.dirname(this.file), { recursive: true });
+      fs.accessSync(path.dirname(this.file), fs.constants.W_OK);
+      return true;
+    } catch (e) {
+      console.error(`ACHTUNG: ${path.dirname(this.file)} ist nicht beschreibbar (${e.code}). Der Spielstand geht beim Neustart verloren.`);
+      return false;
+    }
   }
 
   get(col, id) {

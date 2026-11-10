@@ -27,6 +27,7 @@ if (!CONFIG.password) {
 }
 
 const store = new Store(CONFIG.dataFile);
+store.checkWritable();
 
 // Sammlungen, die nicht an alle gehen: "players" gehört jedem Spieler selbst, "_…" nur dem Server.
 const isPrivate = (col) => col === 'players' || col.startsWith('_');
