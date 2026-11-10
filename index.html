@@ -54,9 +54,19 @@
     <button id="jumpbtn" aria-label="Springen">Hopp</button>
     <div id="tv" hidden><div class="tvbox"><div class="tvscreen"><canvas id="tvc"></canvas><div class="tvch">DORF-TV · Deine größten Momente</div><div class="tvtext"><h2 id="tvt"></h2><div id="tvd"></div></div><div class="scan"></div></div>
       <div class="tvctl"><button id="tvp" aria-label="Zurück">◀</button><span id="tvn"></span><button id="tvx" aria-label="Weiter">▶</button><button id="tvoff" class="go">Ausschalten</button></div></div></div>
+    <div id="login">
+      <form id="loginform" class="panel">
+        <h3>Willkommen in Younes' Dorf</h3>
+        <p>Sag das Dorf-Passwort, dann darfst du rein. Du musst dich nicht anmelden.</p>
+        <input id="loginpw" type="password" autocomplete="current-password" placeholder="Dorf-Passwort" />
+        <button id="loginbtn" class="go" type="submit">Rein ins Dorf</button>
+        <div id="loginmsg" aria-live="polite"></div>
+      </form>
+    </div>
     <div id="modal" hidden><div id="sheet" class="panel"></div></div>
 
     <!-- Reihenfolge ist wichtig: klassische Skripte teilen sich einen globalen Scope. -->
+    <script src="js/net.js"></script>
     <script src="js/config.js"></script>
     <script src="js/world.js"></script>
     <script src="js/state.js"></script>
