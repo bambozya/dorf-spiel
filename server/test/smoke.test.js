@@ -96,6 +96,23 @@ try {
   m = await c3.next((x) => x.t === 'denied');
   assert.match(m.reason, /voll/);
 
+  // Uhr: kommt mit dem Willkommen und danach jede Sekunde
+  assert.equal(typeof wa.clock.day, 'number');
+  m = await a.next((x) => x.t === 'clock');
+  assert.ok(m.time >= wa.clock.time);
+
+  // Eigener Spielstand: nur für den Spieler selbst (und den Besitzer) sichtbar, kein Rundruf
+  m = await b.req({ t: 'set', col: 'players', id: wb.userId, data: { coins: 5 } });
+  assert.equal(m.ok, true);
+  m = await b.req({ t: 'set', col: 'players', id: wa.userId, data: { coins: 9999 } });
+  assert.equal(m.ok, false, 'fremden Spielstand schreiben ist verboten');
+  m = await a.req({ t: 'get', col: 'players', id: wb.userId });
+  assert.equal(m.data.coins, 5, 'der Besitzer darf lesen');
+  m = await b.req({ t: 'get', col: 'players', id: wb.userId });
+  assert.equal(m.data.coins, 5);
+  m = await b.req({ t: 'get', col: '_server', id: 'clock' });
+  assert.equal(m.ok, false);
+
   // Dokumente
   m = await a.req({ t: 'get', col: 'world', id: 'bridge' });
   assert.equal(m.exists, false);
@@ -147,6 +164,8 @@ try {
   a.send({ t: 'hello', password: 'geheim', token: 'token-aaaaaaaaaaaaaaaa' });
   const w = await a.next((x) => x.t === 'welcome');
   assert.deepEqual(w.collections.admin.bans, { ids: { x: 1 } });
+  assert.equal(w.collections.players, undefined, 'Spielstände stehen nicht im Willkommen');
+  assert.equal(w.collections._server, undefined);
   assert.equal(w.collections.world.bridge, undefined);
   a.ws.close();
 } finally {

@@ -91,6 +91,7 @@ function save() {
     }
     localStorage.setItem(SAVEKEY, JSON.stringify(state));
   } catch (e) {}
+  if (window.dorfServer) window.dorfServer.savePlayer(state);
 }
 
 function load(data) {

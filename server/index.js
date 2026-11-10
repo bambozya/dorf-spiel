@@ -28,6 +28,51 @@ if (!CONFIG.password) {
 
 const store = new Store(CONFIG.dataFile);
 
+// Sammlungen, die nicht an alle gehen: "players" gehört jedem Spieler selbst, "_…" nur dem Server.
+const isPrivate = (col) => col === 'players' || col.startsWith('_');
+const publicCollections = () =>
+  Object.fromEntries(Object.entries(store.collections).filter(([col]) => !isPrivate(col)));
+
+// ---------- die gemeinsame Uhr ----------
+// Ein Tag hat 24 Stunden: von 6 bis 22 Uhr vergehen 4 Minuten, die Nacht dauert 5 Minuten.
+// Schlafen alle Spieler, die online sind, springt die Uhr auf den nächsten Morgen.
+const clock = Object.assign({ day: 1, t: 0.02 }, store.get('_server', 'clock') || {});
+let clockLast = Date.now();
+let clockSendT = 0;
+let allAsleepT = 0;
+
+function tickClock() {
+  const now = Date.now();
+  const dt = Math.min(5, (now - clockLast) / 1000);
+  clockLast = now;
+  const hour = 6 + clock.t * 24;
+  clock.t += dt * (hour >= 22 ? 8 / 24 / 300 : 16 / 24 / 240);
+  let dayChanged = false;
+  if (clock.t >= 1) {
+    clock.day += 1;
+    clock.t = 0;
+    dayChanged = true;
+  }
+  const online = [...clients.values()].filter((c) => c.ready);
+  if (online.length && online.every((c) => c.presence && c.presence.sl === true)) {
+    allAsleepT += dt;
+    if (allAsleepT > 1.8) {
+      allAsleepT = 0;
+      clock.day += 1;
+      clock.t = 0;
+      dayChanged = true;
+    }
+  } else allAsleepT = 0;
+  clockSendT += dt;
+  if (dayChanged || clockSendT >= 1) {
+    clockSendT = 0;
+    broadcast({ t: 'clock', day: clock.day, time: +clock.t.toFixed(4) });
+  }
+  if (dayChanged) store.set('_server', 'clock', { day: clock.day, t: clock.t });
+}
+setInterval(tickClock, 250).unref();
+setInterval(() => store.set('_server', 'clock', { day: clock.day, t: clock.t }), 30000).unref();
+
 // ---------- statische Dateien ----------
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -136,7 +181,8 @@ function handleHello(ws, c, msg, ip) {
     userId: c.userId,
     owner: c.owner,
     peers: peerList(),
-    collections: store.collections,
+    collections: publicCollections(),
+    clock: { day: clock.day, time: +clock.t.toFixed(4) },
   });
   peersDirty = true;
   console.log(`+ ${c.userId} (${online + 1} online)`);
@@ -154,6 +200,14 @@ function safeEqual(a, b) {
 }
 
 const validName = (s) => typeof s === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(s);
+
+// Darf dieser Spieler das Dokument lesen oder schreiben?
+function mayAccess(c, col, id) {
+  if (!validName(col) || !validName(id)) return false;
+  if (col.startsWith('_')) return false;
+  if (col === 'players') return id === c.userId || c.owner;
+  return true;
+}
 
 function handleMessage(ws, c, raw, ip) {
   let msg;
@@ -177,27 +231,26 @@ function handleMessage(ws, c, raw, ip) {
       return res({ ok: true });
     }
     case 'get': {
-      if (!validName(msg.col) || !validName(msg.id)) return res({ ok: false });
+      if (!mayAccess(c, msg.col, msg.id)) return res({ ok: false });
       const data = store.get(msg.col, msg.id);
       return res({ ok: true, exists: data !== undefined, data: data === undefined ? null : data });
     }
     case 'set': {
-      if (!validName(msg.col) || !validName(msg.id) || !msg.data || typeof msg.data !== 'object')
+      if (!mayAccess(c, msg.col, msg.id) || !msg.data || typeof msg.data !== 'object')
         return res({ ok: false });
       if (JSON.stringify(msg.data).length > DOC_LIMIT) return res({ ok: false, error: 'zu groß' });
       store.set(msg.col, msg.id, msg.data);
-      broadcast({ t: 'doc', col: msg.col, id: msg.id, data: msg.data });
+      if (!isPrivate(msg.col)) broadcast({ t: 'doc', col: msg.col, id: msg.id, data: msg.data });
       return res({ ok: true });
     }
     case 'delete': {
-      if (!validName(msg.col) || !validName(msg.id)) return res({ ok: false });
+      if (!mayAccess(c, msg.col, msg.id)) return res({ ok: false });
       store.delete(msg.col, msg.id);
-      broadcast({ t: 'doc', col: msg.col, id: msg.id, data: null });
+      if (!isPrivate(msg.col)) broadcast({ t: 'doc', col: msg.col, id: msg.id, data: null });
       return res({ ok: true });
     }
     case 'acquire': {
-      if (!validName(msg.col) || !validName(msg.id) || typeof msg.holder !== 'string')
-        return res({ ok: false });
+      if (!mayAccess(c, msg.col, msg.id) || typeof msg.holder !== 'string') return res({ ok: false });
       const acquired = store.acquire(msg.col, msg.id, c.peer + ':' + msg.holder.slice(0, 40), msg.ttlMs);
       return res({ ok: true, acquired });
     }

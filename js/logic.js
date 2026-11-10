@@ -668,7 +668,7 @@ function update(dt) {
     state.t += dt * (hr >= 22 ? 8 / 24 / 300 : 16 / 24 / 240);
   }
   if (state.t >= 1) {
-    if (isLeader()) newDay();
+    if (!serverClock() && isLeader()) newDay();
     else state.t = 0.9999;
   }
   for (const p of state.plots)

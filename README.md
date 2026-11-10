@@ -19,7 +19,7 @@ npm test                 # Rauchtest
 - `DORF_PASSWORD`: das Dorf-Passwort, das alle Spieler einmal eingeben. Der Browser merkt es sich.
 - `DORF_OWNER_TOKEN`: wer die Seite einmal mit `?owner=<Token>` öffnet, ist danach auf diesem Gerät Besitzer (Admin-Knopf, Bannen).
 - `DORF_MAX_PLAYERS`: wie viele gleichzeitig ins Dorf dürfen (Standard 30).
-- Der Spielstand liegt in `server/data/db.json`.
+- Der ganze Spielstand liegt in `server/data/db.json`: der gemeinsame (Brücke, Hafen, Stände, Haus-Codes, Bann-Liste), die Uhr und der persönliche Spielstand jedes Spielers (`players/<Kennung>`). Der Browser behält nur eine Kopie als Reserve.
 
 Spieler müssen sich nicht registrieren: jedes Gerät bekommt beim ersten Besuch eine zufällige Kennung (localStorage), daraus macht der Server die Spieler-Kennung.
 
@@ -72,4 +72,4 @@ npx prettier --write "js/*.js" css/style.css
 
 ## Hinweis zum Online-Modus
 
-Die Online-Dateien (`online.js`, `online-shared.js`, `player-stalls.js`, `barn-sacks.js`, `ban.js`, `admin.js`) sprechen eine kleine Schnittstelle an: einen Raum mit Anwesenheit, einen Dokumentenspeicher und eine Spieler-Kennung. `js/net.js` stellt sie über unseren Spielserver bereit. In der Claude-Artifact-Umgebung liefert `window.claude` dieselbe Schnittstelle, dann tut `net.js` nichts. Der persönliche Spielstand (Münzen, Rucksack, Haus) liegt noch im Browser (localStorage); er wandert als nächster Schritt auf den Server.
+Die Online-Dateien (`online.js`, `online-shared.js`, `player-stalls.js`, `barn-sacks.js`, `ban.js`, `admin.js`) sprechen eine kleine Schnittstelle an: einen Raum mit Anwesenheit, einen Dokumentenspeicher und eine Spieler-Kennung. `js/net.js` stellt sie über unseren Spielserver bereit. In der Claude-Artifact-Umgebung liefert `window.claude` dieselbe Schnittstelle, dann tut `net.js` nichts. Die Uhr gibt der Server vor: ein Tag dauert neun Minuten, und wenn alle, die online sind, im Bett liegen, beginnt sofort der nächste Morgen. Der persönliche Spielstand (Münzen, Rucksack, Haus) wird beim Anmelden vom Server geholt und alle paar Sekunden dorthin gespeichert.

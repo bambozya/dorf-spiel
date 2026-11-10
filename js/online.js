@@ -35,6 +35,26 @@ function viewerPeers() {
   }
 }
 
+// Die Uhr des eigenen Spielservers (net.js); in der Claude-Umgebung gibt es sie nicht.
+function serverClock() {
+  const c = window.dorfServer && window.dorfServer.clock;
+  return c && typeof c.day === 'number' && typeof c.time === 'number' ? c : null;
+}
+
+// Eigene Uhr an die gemeinsame angleichen; ein neuer Tag löst den Morgen aus.
+function followClock(d, t) {
+  if (d === null || t === null) return;
+  const D = Math.floor(d);
+  if (D > state.day) {
+    state.day = D - 1;
+    newDay();
+    state.t = t;
+  } else if (D < state.day) {
+    state.day = D;
+    state.t = t;
+  } else if (Math.abs(t - state.t) > 0.01) state.t = t;
+}
+
 function isLeader() {
   const ps = viewerPeers();
   if (!ps.length) return true;
@@ -100,22 +120,12 @@ function netTick(dt) {
     if (o.mv) o.phase += dt * 12;
   }
   for (const k of [...others.keys()]) if (!seen.has(k)) others.delete(k);
-  // gemeinsame Uhr: der Spieler, der am längsten dabei ist, gibt die Zeit vor
-  if (ps.length && !isLeader()) {
-    const L = [...ps].sort((a, b) => (a.peer < b.peer ? -1 : 1))[0],
-      d = num(L.presence.d, 1, 1e6),
-      t = num(L.presence.t, 0, 1);
-    if (d !== null && t !== null) {
-      const D = Math.floor(d);
-      if (D > state.day) {
-        state.day = D - 1;
-        newDay();
-        state.t = t;
-      } else if (D < state.day) {
-        state.day = D;
-        state.t = t;
-      } else if (Math.abs(t - state.t) > 0.01) state.t = t;
-    }
+  // gemeinsame Uhr: entweder gibt der Server die Zeit vor oder der Spieler, der am längsten dabei ist
+  const sc = serverClock();
+  if (sc) followClock(sc.day, sc.time);
+  else if (ps.length && !isLeader()) {
+    const L = [...ps].sort((a, b) => (a.peer < b.peer ? -1 : 1))[0];
+    followClock(num(L.presence.d, 1, 1e6), num(L.presence.t, 0, 1));
   }
   // Schlafen: erst wenn alle online im Bett liegen
   if (player.sleep) {
@@ -125,7 +135,7 @@ function netTick(dt) {
       tot === 1
         ? '<b>Gute Nacht!</b> Du schläfst…'
         : `<b>Du liegst im Bett.</b> ${asl} von ${tot} Spielern schlafen. Die Nacht geht erst vorbei, wenn alle im Bett sind.`;
-    if (asl >= tot && isLeader()) {
+    if (asl >= tot && !sc && isLeader()) {
       allSleepT += dt;
       if (allSleepT > 1.8) {
         allSleepT = 0;

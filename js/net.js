@@ -63,6 +63,41 @@
   const docListeners = new Set(); // {col, id|null, cb}
   const readyWaiters = []; // resolve-Funktionen, die auf die erste Anmeldung warten
   let backoff = 1000;
+  let startGame = null; // wird von main.js über hot.ready() gesetzt
+  let started = false;
+  let lastSaved = '';
+  let saveTimer = null;
+
+  // Für das Spiel: Uhr des Servers und Speichern des eigenen Spielstands.
+  const dorfServer = {
+    clock: null, // { day, time } vom Server, null solange nicht verbunden
+    savePlayer(st) {
+      if (!connected || !st) return;
+      const s = JSON.stringify(st);
+      if (s === lastSaved) return;
+      lastSaved = s;
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        request({ t: 'set', col: 'players', id: me.userId, data: JSON.parse(s) }).catch(
+          () => (lastSaved = ''),
+        );
+      }, 300);
+    },
+  };
+  window.dorfServer = dorfServer;
+
+  // Beim ersten Anmelden den eigenen Spielstand vom Server holen und dann das Spiel starten.
+  async function startAfterLogin() {
+    if (started || !startGame) return;
+    started = true;
+    let saved = null;
+    try {
+      const r = await request({ t: 'get', col: 'players', id: me.userId });
+      if (r.ok && r.exists) saved = r.data;
+    } catch (e) {}
+    if (saved) lastSaved = JSON.stringify(saved);
+    startGame({ state: saved });
+  }
 
   function request(msg) {
     return new Promise((resolve, reject) => {
@@ -122,13 +157,18 @@
         me = { peer: msg.peer, userId: msg.userId, owner: msg.owner };
         peers = msg.peers;
         collections = msg.collections || {};
+        if (msg.clock) dorfServer.clock = msg.clock;
         storage.set(PASSWORD_KEY, password);
         login.hide();
         notifyPeers();
         for (const l of docListeners) emitDoc(l);
         while (readyWaiters.length) readyWaiters.shift()();
+        startAfterLogin();
         return;
       }
+      case 'clock':
+        dorfServer.clock = { day: msg.day, time: msg.time };
+        return;
       case 'denied':
         login.denied = true;
         storage.set(PASSWORD_KEY, null);
@@ -239,6 +279,14 @@
     use: async (what) => {
       await whenReady();
       return { room, db, user }[what] || null;
+    },
+    // main.js wartet mit dem Start, bis wir angemeldet sind und der Spielstand da ist.
+    hot: {
+      ready: (fn) => {
+        startGame = fn;
+        if (connected) startAfterLogin();
+      },
+      snapshot: () => {},
     },
   };
 
