@@ -21,6 +21,8 @@ npm test                 # Rauchtest
 - `DORF_MAX_PLAYERS`: wie viele gleichzeitig ins Dorf dürfen (Standard 30).
 - Der ganze Spielstand liegt in `server/data/db.json`: der gemeinsame (Brücke, Hafen, Stände, Haus-Codes, Bann-Liste), die Uhr und der persönliche Spielstand jedes Spielers (`players/<Kennung>`). Der Browser behält nur eine Kopie als Reserve.
 
+Die Anleitung für den eigenen Server (systemd-Dienst, Reverse-Proxy, Aktualisieren, Sicherung) liegt lokal im Ordner `deploy/`, der nicht im Repository ist.
+
 Spieler müssen sich nicht registrieren: jedes Gerät bekommt beim ersten Besuch eine zufällige Kennung (localStorage), daraus macht der Server die Spieler-Kennung.
 
 ## Aufbau
