@@ -101,7 +101,7 @@ function build3D() {
   r(KLO.x, KLO.y, 2, 2, 4, 0);
   r(WELL.x, WELL.y, 2, 2, 7, 0);
   r(WELL2.x, WELL2.y, 2, 2, 7, 0);
-  STALLS1.forEach((s) => r(s.x, s.y, 2, 1, 6, 0));
+  PSTALLS.forEach((s) => r(s.x, s.y, 2, 1, 6, 0));
   STALLS2.forEach((s) => r(s.x, s.y, 2, 1, 6, 0));
   for (const n in GARAGES) if (hasGarage(+n)) r(GARAGES[n].x, GARAGES[n].y, 3, 2, 9, +n);
   aoMask(WK, MAP_W, MAP_H, (t) => WK[t] && HK[WK[t]] >= 1.5, AOM);
@@ -127,6 +127,10 @@ let Q3 = 0.8,
   CLOUD = null;
 const lerpRGB = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const FURN = {
+  tcounter: [1, '#8a5a35'],
+  fabric: [1.6, '#c95a7a'],
+  sewing: [1, '#2b2b2b'],
+  mirror: [1.9, '#bfe3f2'],
   sack: [0.8, '#c9a878'],
   hay: [1, '#e2c071'],
   ladder: [1.9, '#8a5a35'],
@@ -1168,7 +1172,7 @@ function render3D() {
         1,
       );
     });
-    STALLS1.forEach((s, i) => add(s.x + 1, s.y + 1, sprStallT(TRADES[i].aw, psGoods(i), psLabel(i))));
+    PSTALLS.forEach((s, i) => add(s.x + 1, s.y + 1, sprStallT(psAwning(i), psGoods(i), psLabel(i))));
     {
       const be = bridgeEnd();
       if (bridgeWood() > 0)
@@ -1269,6 +1273,7 @@ function render3D() {
           : sprPerson(o.lk, o.rang ?? o.a ?? FACEANG[o.f], o.mv ? o.phase : null),
     );
   }
+  if (inside && scene.floor === 'tl') addTailorSprites3D(add);
   if (inside && scene.map.cave)
     for (const o of scene.map.objs)
       if (o.k === 'torch') {

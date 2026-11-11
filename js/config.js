@@ -125,6 +125,8 @@ const V2H = [
   { x: 78, y: 9, w: 5, h: 4, wall: '#e3eef5', roof: '#3d6fb0' },
   { x: 58, y: 39, w: 5, h: 4, wall: '#f1d0c0', roof: '#2f7a5a' },
   { x: 78, y: 39, w: 5, h: 4, wall: '#e8e0f5', roof: '#7a4a8c' },
+  // Schneiderei oben in der Mitte des Marktdorfs (siehe js/tailor.js)
+  { x: 67, y: 9, w: 5, h: 4, wall: '#f3e3f2', roof: '#7a3f8c', tailor: true },
 ];
 const BARN = { x: 31, y: 3, w: 7, h: 5 },
   SHOP = { x: 31, y: 39, w: 6, h: 5 },
@@ -177,6 +179,26 @@ const STALLS2 = [
   [78, 37],
 ].map((p, k) => ({ x: p[0], y: p[1], k }));
 const MYSTALL = 5;
+
+// Spieler-Stände im Marktdorf (zusätzlich zu den 6 auf dem Dorfplatz)
+const STALLS3 = [
+  [64, 20],
+  [74, 20],
+  [69, 22],
+  [64, 32],
+  [74, 32],
+].map((p) => ({ x: p[0], y: p[1] }));
+// Alle Spieler-Stände: Index 0–5 Dorfplatz, 6–10 Marktdorf
+const PSTALLS = STALLS1.concat(STALLS3);
+const STALLS3_AWNING = [
+  ['#3fa7d6', '#fff8e6'],
+  ['#f2a33a', '#fff8e6'],
+  ['#8a5cd6', '#fff8e6'],
+  ['#3f9a3a', '#fff8e6'],
+  ['#d94f7a', '#fff8e6'],
+];
+const psAwning = (i) => (i < STALLS1.length ? TRADES[i].aw : STALLS3_AWNING[i - STALLS1.length]);
+const psVillage = (i) => (i < STALLS1.length ? 0 : 1);
 
 const SKIN = ['#f6d2b3', '#e8b98f', '#c68a5f', '#8d5a3b', '#5e3a25'];
 const HAIR = ['#2a1d14', '#6b4226', '#c98a3a', '#e8d17a', '#b33a2a', '#3a3a3a'];

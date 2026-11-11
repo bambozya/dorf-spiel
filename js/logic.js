@@ -190,6 +190,14 @@ function interactions() {
     });
     L.push({ x: 9.3, y: 4.5, r: 1.8, text: `Hafen freischalten (${HARBOR_COST} Münzen)`, act: unlockHarbor });
   } else L.push({ x: 3.8, y: 4.75, r: 1.3, text: 'Ins Ruderboot steigen: aufs Meer fahren', act: enterSea });
+  if (state.bridge)
+    L.push({
+      x: TAILOR.x + 2.5,
+      y: TAILOR.y + TAILOR.h + 0.5,
+      r: 1.4,
+      text: 'Schneiderei betreten',
+      act: enterTailor,
+    });
   {
     const w = nearWater();
     if (w && !player.mount)
@@ -233,7 +241,7 @@ function interactions() {
     text: 'Wasser aus dem Brunnen trinken',
     act: () => drinkAt(WELL.x + 1, WELL.y + 1),
   });
-  STALLS1.forEach((s, i) =>
+  PSTALLS.forEach((s, i) =>
     L.push({ x: s.x + 1, y: s.y + 0.6, r: 1.75, text: psText(i), act: () => psAct(i) }),
   );
   PLOTS.forEach((p, i) => {

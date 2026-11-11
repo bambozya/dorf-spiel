@@ -1375,7 +1375,17 @@ function world() {
   const D = [],
     vis = (x, y) => x > x0 - 4 && x < x1 + 4 && y > y0 - 3 && y < y1 + 5;
   HOUSES.forEach((h) => vis(h.x + 3, h.y) && D.push([h.y + h.h, () => drawHouse(c, h, h.n)]));
-  V2H.forEach((h) => vis(h.x + 3, h.y) && D.push([h.y + h.h, () => drawHouse(c, h, 0)]));
+  V2H.forEach(
+    (h) =>
+      vis(h.x + 3, h.y) &&
+      D.push([
+        h.y + h.h,
+        () => {
+          drawHouse(c, h, 0);
+          if (h.tailor) drawTailorSign(c);
+        },
+      ]),
+  );
   D.push(
     [BARN.y + BARN.h, () => drawBarn(c)],
     [SHOP.y + SHOP.h, () => drawShop(c)],
@@ -1383,8 +1393,8 @@ function world() {
     [WELL.y + 2, () => drawWell(c, WELL)],
     [WELL2.y + 2, () => drawWell(c, WELL2)],
   );
-  STALLS1.forEach((s, i) => {
-    D.push([s.y + 1, () => drawStall(c, s, TRADES[i].aw, psGoods(i), psLabel(i))]);
+  PSTALLS.forEach((s, i) => {
+    D.push([s.y + 1, () => drawStall(c, s, psAwning(i), psGoods(i), psLabel(i))]);
   });
   STALLS2.forEach((s, i) => {
     if (!vis(s.x, s.y)) return;

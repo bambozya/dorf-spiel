@@ -555,6 +555,7 @@ function wake() {
 
 // ----- Innen zeichnen -----
 function drawFurn(c, o) {
+  if (TAILOR_KINDS.has(o.k)) return drawTailorObj(c, o);
   if (o.k === 'isle' || o.k === 'searock' || o.k === 'buoy' || o.k === 'shoal' || o.k === 'dock')
     return drawSeaObj(c, o);
   if (

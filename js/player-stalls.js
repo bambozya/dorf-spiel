@@ -60,8 +60,10 @@ const gen = (n) => {
   return /[sßxz]$/i.test(n) ? n + '’' : n + 's';
 };
 
-function psMine() {
-  for (let i = 0; i < STALLS1.length; i++) {
+// Eigener Stand; mit village (0 = Dorfplatz, 1 = Marktdorf) nur in diesem Dorf
+function psMine(village) {
+  for (let i = 0; i < PSTALLS.length; i++) {
+    if (village !== undefined && psVillage(i) !== village) continue;
     const d = psOf(i);
     if (d && MYID && d.owner === MYID) return i;
   }
@@ -126,8 +128,13 @@ function psAct(i) {
   const d = psOf(i);
   if (!d) {
     if (!MYID) return toast('Um einen Stand zu übernehmen, musst du angemeldet sein.');
-    const m = psMine();
-    if (m >= 0) return toast('Du hast schon einen Stand. Jeder darf nur einen haben.');
+    const m = psMine(psVillage(i));
+    if (m >= 0)
+      return toast(
+        psVillage(i) === 0
+          ? 'Du hast schon einen Stand auf dem Dorfplatz. Jeder darf dort nur einen haben.'
+          : 'Du hast schon einen Stand im Marktdorf. Jeder darf dort nur einen haben.',
+      );
     openModal(
       `<h2>Freier Stand</h2><p>Hier kannst du deinen eigenen Tauschstand aufmachen. Du legst Sachen aus und bestimmst, was du dafür haben willst. Andere Spieler können tauschen, auch wenn du gerade nicht da bist.</p><div class="actions"><button class="go" id="psClaim">Stand übernehmen</button><button id="cls">Abbrechen</button></div>`,
     );

@@ -105,9 +105,10 @@ function openAdmin() {
     if (sb) {
       if (!PSDB) sb.innerHTML = '<p>Die Stände gibt es nur im Online-Spiel.</p>';
       else {
-        sb.innerHTML = STALLS1.map((s, i) => {
+        sb.innerHTML = PSTALLS.map((s, i) => {
           const d = psOf(i);
-          return `<div class="banrow"><span><b>Stand ${i + 1}</b> ${d ? 'von ' + esc((d.by || 'jemand').slice(0, 14)) + ' · ' + (d.offers || []).filter((o) => o.left > 0).length + ' Angebote' : 'frei'}</span>${d ? `<button class="sreset" data-i="${i}">Stand räumen</button>` : ''}</div>`;
+          const name = psVillage(i) === 0 ? 'Dorfplatz ' + (i + 1) : 'Marktdorf ' + (i - STALLS1.length + 1);
+          return `<div class="banrow"><span><b>${name}</b> ${d ? 'von ' + esc((d.by || 'jemand').slice(0, 14)) + ' · ' + (d.offers || []).filter((o) => o.left > 0).length + ' Angebote' : 'frei'}</span>${d ? `<button class="sreset" data-i="${i}">Stand räumen</button>` : ''}</div>`;
         }).join('');
         sb.querySelectorAll('.sreset').forEach(
           (x) =>

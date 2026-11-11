@@ -488,8 +488,10 @@ async function releaseMine() {
   if (!MYID) return;
   const jobs = [];
   if (typeof PSDB !== 'undefined' && PSDB) {
-    const i = psMine();
-    if (i >= 0) jobs.push(psEdit(i, (cur) => (cur && cur.owner === MYID ? 'delete' : null)).catch(() => {}));
+    for (const village of [0, 1]) {
+      const i = psMine(village);
+      if (i >= 0) jobs.push(psEdit(i, (cur) => (cur && cur.owner === MYID ? 'delete' : null)).catch(() => {}));
+    }
   }
   if (typeof LOCKDB !== 'undefined' && LOCKDB) {
     for (const id in LOCKS) {

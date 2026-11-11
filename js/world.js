@@ -86,7 +86,7 @@ function buildWorld() {
   rect(solid, KLO.x, KLO.y, 2, 2, 1);
   rect(solid, WELL.x, WELL.y, 2, 2, 1);
   rect(solid, WELL2.x, WELL2.y, 2, 2, 1);
-  for (const s of STALLS1) rect(solid, s.x, s.y, 2, 1, 1);
+  for (const s of PSTALLS) rect(solid, s.x, s.y, 2, 1, 1);
   for (const s of STALLS2) rect(solid, s.x, s.y, 2, 1, 1);
   // Bäume im Dorf
   [
