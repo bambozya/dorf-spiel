@@ -41,6 +41,7 @@ Spieler müssen sich nicht registrieren: jedes Gerät bekommt beim ersten Besuch
 | `js/views.js`, `js/terrain.js`, `js/bike-3d.js`, `js/effects.js` | Normal-, 3D- und Kartenansicht, Boden, Bäume, Licht, Animationen |
 | `js/workshop.js`, `js/harbor.js`, `js/grotto.js`, `js/barn.js`, `js/barn-sacks.js` | Werkstatt, Hafen und Meer, Grotte und Kampf, Scheune |
 | `js/online.js`, `js/online-shared.js`, `js/player-stalls.js`, `js/admin.js`, `js/ban.js` | Online-Modus (siehe unten) |
+| `js/chat.js` | Chat: Gruppenchat für alle und private Gespräche |
 | `js/moments.js` | Erfolgsmomente und der Fernseher |
 | `js/net.js` | Verbindung zum Spielserver: Passwort-Fenster, Anwesenheit, gemeinsamer Spielstand |
 | `js/main.js` | Start und Spielschleife |
@@ -69,7 +70,8 @@ npx prettier --write "js/*.js" css/style.css
 | Q | Samen wechseln |
 | V | Sicht wechseln |
 | H | Tasten-Legende an/aus |
+| C | Chat öffnen / schließen |
 
 ## Hinweis zum Online-Modus
 
-Die Online-Dateien (`online.js`, `online-shared.js`, `player-stalls.js`, `barn-sacks.js`, `ban.js`, `admin.js`) sprechen eine kleine Schnittstelle an: einen Raum mit Anwesenheit, einen Dokumentenspeicher und eine Spieler-Kennung. `js/net.js` stellt sie über unseren Spielserver bereit. In der Claude-Artifact-Umgebung liefert `window.claude` dieselbe Schnittstelle, dann tut `net.js` nichts. Die Uhr gibt der Server vor: ein Tag dauert neun Minuten, und wenn alle, die online sind, im Bett liegen, beginnt sofort der nächste Morgen. Der persönliche Spielstand (Münzen, Rucksack, Haus) wird beim Anmelden vom Server geholt und alle paar Sekunden dorthin gespeichert.
+Die Online-Dateien (`online.js`, `online-shared.js`, `player-stalls.js`, `barn-sacks.js`, `ban.js`, `admin.js`) sprechen eine kleine Schnittstelle an: einen Raum mit Anwesenheit, einen Dokumentenspeicher und eine Spieler-Kennung. `js/net.js` stellt sie über unseren Spielserver bereit. In der Claude-Artifact-Umgebung liefert `window.claude` dieselbe Schnittstelle, dann tut `net.js` nichts. Der Chat (Taste C) hat einen Gruppenchat für alle und private Gespräche zwischen zwei Spielern; der Server behält Nachrichten 24 Stunden und löscht sie dann. Die Uhr gibt der Server vor: ein Tag dauert neun Minuten, und wenn alle, die online sind, im Bett liegen, beginnt sofort der nächste Morgen. Der persönliche Spielstand (Münzen, Rucksack, Haus) wird beim Anmelden vom Server geholt und alle paar Sekunden dorthin gespeichert.

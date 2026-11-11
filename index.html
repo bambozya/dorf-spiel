@@ -28,6 +28,7 @@
         <button id="bKeys">Tasten</button>
         <button id="bLook">Figur</button>
         <button id="bBuild" hidden>Bauen</button>
+        <button id="bChat" hidden>Chat<span id="chatbadge" hidden></span></button>
         <button id="bAdmin" hidden>Admin</button>
         <button id="bNew">Neu</button>
       </div>
@@ -39,8 +40,17 @@
     <dt>Leer</dt><dd>springen / aufstehen</dd><dt>E</dt><dd>Tür, Stand, Bett benutzen</dd>
     <dt>N</dt><dd>mit dem Schwert zuschlagen</dd><dt>P</dt><dd>Möbel tragen</dd><dt>B</dt><dd>Bauen (im Haus)</dd><dt>X</dt><dd>Möbel wegräumen</dd>
     <dt>Q</dt><dd>Samen wechseln</dd><dt>V</dt><dd>Sicht wechseln</dd><dt>Esc</dt><dd>Fenster schließen</dd>
-    <dt>H</dt><dd>Legende an / aus</dd></dl></div>
+    <dt>H</dt><dd>Legende an / aus</dd>
+    <dt>C</dt><dd>Chat öffnen / schließen</dd></dl></div>
     <div id="fightbar" class="panel" hidden></div>
+    <div id="chat" class="panel" hidden>
+      <div id="chattabs"></div>
+      <div id="chatlog"></div>
+      <form id="chatform">
+        <input id="chatinput" maxlength="240" placeholder="Nachricht …" autocomplete="off" />
+        <button class="go" type="submit">Senden</button>
+      </form>
+    </div>
     <div id="focushint" class="panel" hidden>Klick einmal ins Spiel, dann kannst du mit <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> laufen.</div>
     <div id="toasts"></div>
     <div id="bottom">
@@ -92,6 +102,7 @@
     <script src="js/tailor.js"></script>
     <script src="js/barn-sacks.js"></script>
     <script src="js/player-stalls.js"></script>
+    <script src="js/chat.js"></script>
     <script src="js/ban.js"></script>
     <script src="js/barn.js"></script>
     <script src="js/kitchen.js"></script>

@@ -14,6 +14,7 @@ const env = {
   DORF_OWNER_TOKEN: 'chef',
   DORF_DATA: dataFile,
   DORF_MAX_PLAYERS: 2,
+  DORF_CHAT_TTL_MS: 2500,
 };
 
 function startServer() {
@@ -23,6 +24,7 @@ function startServer() {
   });
   return new Promise((resolve) => p.stdout.on('data', (d) => d.toString().includes('läuft') && resolve(p)));
 }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const stop = (p) =>
   new Promise((r) => {
     p.on('exit', r);
@@ -113,6 +115,30 @@ try {
   m = await b.req({ t: 'get', col: '_server', id: 'clock' });
   assert.equal(m.ok, false);
 
+  // Chat: Gruppe, privat, Bremse, Verlauf, Verfall
+  await a.req({ t: 'presence', p: { x: 1, y: 1, nm: 'Anna' } });
+  await sleep(200);
+  m = await a.req({ t: 'chat', text: '  Hallo <alle>!  ' });
+  assert.equal(m.ok, true);
+  m = await b.next((x) => x.t === 'chat');
+  assert.equal(m.msg.text, 'Hallo <alle>!');
+  assert.equal(m.msg.fromName, 'Anna');
+  assert.equal(m.msg.to, null);
+  await a.next((x) => x.t === 'chat'); // der Absender bekommt sie auch
+  m = await a.req({ t: 'chat', text: 'zu schnell' });
+  assert.equal(m.ok, false, 'zwei Nachrichten innerhalb einer halben Sekunde');
+  await sleep(600);
+  m = await b.req({ t: 'chat', to: wa.userId, text: 'psst' });
+  assert.equal(m.ok, true);
+  m = await a.next((x) => x.t === 'chat' && x.msg.to === wa.userId);
+  assert.equal(m.msg.toName, 'Anna');
+  assert.equal(m.msg.fromName, 'Bea');
+  m = await b.req({ t: 'chat', to: 'niemand', text: 'hallo?' });
+  assert.equal(m.ok, false);
+  m = await b.req({ t: 'chat', text: '' });
+  assert.equal(m.ok, false);
+  assert.equal(wb.chat.length, 0, 'beim Anmelden war der Chat leer');
+
   // Dokumente
   m = await a.req({ t: 'get', col: 'world', id: 'bridge' });
   assert.equal(m.exists, false);
@@ -148,9 +174,26 @@ try {
   assert.equal((await fetch(`http://127.0.0.1:${PORT}/.gitignore`)).status, 404);
   assert.equal((await fetch(`http://127.0.0.1:${PORT}/..%2F..%2Fetc%2Fpasswd`)).status, 404);
 
-  // Spieler geht: der andere merkt es
+  // Verlauf beim Anmelden: Dritter sieht die Gruppe, nicht das private Gespräch; danach verfällt alles
   b.ws.close();
   m = await a.next((x) => x.t === 'peers' && x.peers.length === 1);
+  const c = client();
+  await c.open;
+  c.send({ t: 'hello', password: 'geheim', token: 'token-cccccccccccccccc' });
+  const wc = await c.next((x) => x.t === 'welcome');
+  assert.deepEqual(
+    wc.chat.map((x) => x.text),
+    ['Hallo <alle>!'],
+    'nur der Gruppenchat',
+  );
+  c.ws.close();
+  await sleep(2600);
+  const d = client();
+  await d.open;
+  d.send({ t: 'hello', password: 'geheim', token: 'token-dddddddddddddddd' });
+  const wd = await d.next((x) => x.t === 'welcome');
+  assert.equal(wd.chat.length, 0, 'nach Ablauf der Zeit ist der Chat leer');
+  d.ws.close();
   a.ws.close();
 } finally {
   await stop(server);

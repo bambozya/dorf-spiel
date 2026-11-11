@@ -68,9 +68,26 @@
   let lastSaved = '';
   let saveTimer = null;
 
-  // Für das Spiel: Uhr des Servers und Speichern des eigenen Spielstands.
+  let chatHistory = [];
+  const chatListeners = new Set();
+
+  // Für das Spiel: Uhr des Servers, Speichern des eigenen Spielstands, Chat, Mitspieler.
   const dorfServer = {
     clock: null, // { day, time } vom Server, null solange nicht verbunden
+    userId: null,
+    // Mitspieler, die gerade online sind (ohne mich): [{ user, name }]
+    players: () =>
+      peers
+        .filter((p) => p.user && p.user !== me.userId)
+        .map((p) => ({ user: p.user, name: (p.presence && p.presence.nm) || 'Jemand' })),
+    chat: {
+      history: () => chatHistory,
+      send: (to, text) => request({ t: 'chat', to: to || null, text }),
+      onMessage: (cb) => {
+        chatListeners.add(cb);
+        return () => chatListeners.delete(cb);
+      },
+    },
     savePlayer(st) {
       if (!connected || !st) return;
       const s = JSON.stringify(st);
@@ -155,6 +172,9 @@
         connected = true;
         backoff = 1000;
         me = { peer: msg.peer, userId: msg.userId, owner: msg.owner };
+        dorfServer.userId = me.userId;
+        chatHistory = Array.isArray(msg.chat) ? msg.chat : [];
+        for (const cb of chatListeners) cb(null); // Verlauf neu laden
         peers = msg.peers;
         collections = msg.collections || {};
         if (msg.clock) dorfServer.clock = msg.clock;
@@ -168,6 +188,15 @@
       }
       case 'clock':
         dorfServer.clock = { day: msg.day, time: msg.time };
+        return;
+      case 'chat':
+        chatHistory.push(msg.msg);
+        if (chatHistory.length > 600) chatHistory = chatHistory.slice(-600);
+        for (const cb of chatListeners) {
+          try {
+            cb(msg.msg);
+          } catch (e) {}
+        }
         return;
       case 'denied':
         login.denied = true;
@@ -223,6 +252,7 @@
     peers: () =>
       peers.map((p) => ({
         peer: p.peer,
+        user: p.user,
         kind: 'viewer',
         sameTab: p.peer === me.peer,
         presence: p.presence || {},

@@ -126,6 +126,83 @@ setInterval(() => {
   for (const [ip, a] of attempts) if (a.until < now) attempts.delete(ip);
 }, 60 * 1000).unref();
 
+// ---------- Chat ----------
+// Ein Gruppenchat für alle und private Gespräche. Nachrichten verfallen nach 24 Stunden.
+const CHAT_TTL = Number(process.env.DORF_CHAT_TTL_MS) || 24 * 60 * 60 * 1000;
+const CHAT_MAX = 2000;
+const CHAT_TEXT_MAX = 240;
+let chat = ((store.get('_chat', 'log') || {}).messages || []).filter((m) => m && typeof m.at === 'number');
+let chatSeq = chat.reduce((m, x) => Math.max(m, x.id | 0), 0);
+
+const saveChat = () => store.set('_chat', 'log', { messages: chat });
+
+function pruneChat() {
+  const cutoff = Date.now() - CHAT_TTL;
+  const before = chat.length;
+  chat = chat.filter((m) => m.at >= cutoff);
+  if (chat.length > CHAT_MAX) chat = chat.slice(-CHAT_MAX);
+  if (chat.length !== before) saveChat();
+}
+setInterval(pruneChat, 60 * 1000).unref();
+
+// Alles, was dieser Spieler sehen darf: der Gruppenchat und seine eigenen privaten Gespräche.
+function chatFor(userId) {
+  pruneChat();
+  return chat.filter((m) => !m.to || m.from === userId || m.to === userId).slice(-300);
+}
+
+const nameOf = (c) =>
+  c.presence && typeof c.presence.nm === 'string' && c.presence.nm.trim()
+    ? c.presence.nm.trim().slice(0, 14)
+    : 'Jemand';
+
+// Name eines Spielers, der gerade nicht online ist, aus früheren Nachrichten
+function knownName(userId) {
+  for (let i = chat.length - 1; i >= 0; i--) {
+    const m = chat[i];
+    if (m.from === userId) return m.fromName;
+    if (m.to === userId) return m.toName;
+  }
+  return null;
+}
+
+function handleChat(c, msg, res) {
+  const text =
+    typeof msg.text === 'string'
+      ? msg.text
+          .replace(/[\u0000-\u001f\u007f]/g, ' ')
+          .trim()
+          .slice(0, CHAT_TEXT_MAX)
+      : '';
+  if (!text) return res({ ok: false, error: 'Leere Nachricht.' });
+  const now = Date.now();
+  c.chatTimes = (c.chatTimes || []).filter((t) => now - t < 60 * 1000);
+  const last = c.chatTimes[c.chatTimes.length - 1];
+  if (c.chatTimes.length >= 20 || (last && now - last < 500))
+    return res({ ok: false, error: 'Langsamer bitte.' });
+  c.chatTimes.push(now);
+  let to = null;
+  let toName = null;
+  if (msg.to) {
+    if (typeof msg.to !== 'string' || msg.to === c.userId)
+      return res({ ok: false, error: 'Ungültiger Empfänger.' });
+    const rc = [...clients.values()].find((x) => x.ready && x.userId === msg.to);
+    toName = rc ? nameOf(rc) : knownName(msg.to);
+    if (!toName) return res({ ok: false, error: 'Diesen Spieler gibt es hier nicht.' });
+    to = msg.to;
+  }
+  const m = { id: ++chatSeq, from: c.userId, fromName: nameOf(c), to, toName, text, at: now };
+  chat.push(m);
+  if (chat.length > CHAT_MAX) chat = chat.slice(-CHAT_MAX);
+  saveChat();
+  const out = JSON.stringify({ t: 'chat', msg: m });
+  for (const [w, x] of clients) {
+    if (!x.ready || w.readyState !== w.OPEN) continue;
+    if (!to || x.userId === to || x.userId === c.userId) w.send(out);
+  }
+  return res({ ok: true, id: m.id });
+}
+
 // ---------- Spieler ----------
 const clients = new Map(); // ws -> { peer, userId, owner, presence, alive }
 const PRESENCE_LIMIT = 2000; // Bytes pro Anwesenheits-Nachricht
@@ -150,7 +227,8 @@ function broadcast(msg, except) {
 
 function peerList() {
   const list = [];
-  for (const c of clients.values()) if (c.ready) list.push({ peer: c.peer, presence: c.presence });
+  for (const c of clients.values())
+    if (c.ready) list.push({ peer: c.peer, user: c.userId, presence: c.presence });
   return list;
 }
 
@@ -184,6 +262,7 @@ function handleHello(ws, c, msg, ip) {
     peers: peerList(),
     collections: publicCollections(),
     clock: { day: clock.day, time: +clock.t.toFixed(4) },
+    chat: chatFor(c.userId),
   });
   peersDirty = true;
   console.log(`+ ${c.userId} (${online + 1} online)`);
@@ -255,6 +334,8 @@ function handleMessage(ws, c, raw, ip) {
       const acquired = store.acquire(msg.col, msg.id, c.peer + ':' + msg.holder.slice(0, 40), msg.ttlMs);
       return res({ ok: true, acquired });
     }
+    case 'chat':
+      return handleChat(c, msg, res);
     case 'ping':
       return res({ ok: true });
     default:

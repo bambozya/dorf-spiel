@@ -70,6 +70,10 @@ addEventListener('keydown', (e) => {
     toggleKeys();
     return;
   }
+  if (k === 'c') {
+    toggleChat();
+    return;
+  }
   if (k === 'n') {
     attack();
     return;
