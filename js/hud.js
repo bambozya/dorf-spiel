@@ -474,8 +474,10 @@ $('bNew').onclick = () => {
       state.day = keepDay;
       state.t = keepT;
     }
+    syncHouses(false); // die Häuser bleiben so, wie das Dorf sie gebaut hat
     if (wasAdmin) setAdmin(true);
     buildWorld();
+    applyGarages();
     if (state.bridge) applyBridge();
     initEntities();
     closeModal();
@@ -490,7 +492,8 @@ async function releaseMine() {
   if (typeof PSDB !== 'undefined' && PSDB) {
     for (const village of [0, 1]) {
       const i = psMine(village);
-      if (i >= 0) jobs.push(psEdit(i, (cur) => (cur && cur.owner === MYID ? 'delete' : null)).catch(() => {}));
+      if (i >= 0)
+        jobs.push(psEdit(i, (cur) => (cur && cur.owner === MYID ? 'delete' : null)).catch(() => {}));
     }
   }
   if (typeof LOCKDB !== 'undefined' && LOCKDB) {

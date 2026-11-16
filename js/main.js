@@ -38,12 +38,14 @@ function start(data) {
   if (state.bridge) moment('bridge', 'Die Brücke über den Fluss gebaut!', 'bridge', 1);
   if (state.stats.sold > 0) moment('sale1', 'Der erste Kunde hat an deinem Stand gekauft!', 'coin', 1);
   for (const n of [5, 6]) {
-    if (state.up[n].p) moment('p' + n, `Haus ${n} hat jetzt Strom!`, 'bolt', 1);
-    if (state.up[n].w) moment('w' + n, `Haus ${n} hat jetzt Wasser!`, 'drop', 1);
+    if (state.up[n].p && !builtByOther('p' + n)) moment('p' + n, `Haus ${n} hat jetzt Strom!`, 'bolt', 1);
+    if (state.up[n].w && !builtByOther('w' + n)) moment('w' + n, `Haus ${n} hat jetzt Wasser!`, 'drop', 1);
   }
   for (const [n, h] of Object.entries(state.homes || {}))
     for (let e = 1; e <= (h.extra || 0); e++)
-      moment('floor' + n + '_' + e, `Haus ${n} um eine Etage größer gebaut!`, 'house', 1);
+      if (!builtByOther('floor' + n + '_' + e))
+        moment('floor' + n + '_' + e, `Haus ${n} um eine Etage größer gebaut!`, 'house', 1);
+  syncHouses(false); // was andere inzwischen gebaut haben
   if (!state.created) openLook(true);
   requestAnimationFrame((t) => {
     last = t;

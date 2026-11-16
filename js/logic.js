@@ -110,6 +110,7 @@ function changed() {
   for (const v of [200, 500, 1000])
     if (state.coins >= v) moment('coins' + v, `${v} Glücksmünzen gesammelt!`, 'coin');
   renderHUD();
+  syncHouses(true);
   save();
 }
 
