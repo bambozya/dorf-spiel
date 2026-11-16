@@ -14,7 +14,8 @@ const env = {
   DORF_OWNER_TOKEN: 'chef',
   DORF_DATA: dataFile,
   DORF_MAX_PLAYERS: 2,
-  DORF_CHAT_TTL_MS: 2500,
+  DORF_CHAT_TTL_MS: 6000,
+  DORF_TRADE_TTL_MS: 800,
 };
 
 function startServer() {
@@ -139,6 +140,54 @@ try {
   assert.equal(m.ok, false);
   assert.equal(wb.chat.length, 0, 'beim Anmelden war der Chat leer');
 
+  // Schenken: der Server reicht das Geschenk an den Empfänger weiter
+  m = await a.req({ t: 'gift', to: wb.userId, k: 'coin', n: 25 });
+  assert.equal(m.ok, true);
+  m = await b.next((x) => x.t === 'gift');
+  assert.deepEqual([m.from, m.fromName, m.k, m.n], [wa.userId, 'Anna', 'coin', 25]);
+  await sleep(300);
+  m = await a.req({ t: 'gift', to: wb.userId, k: 'coin', n: -5 });
+  assert.equal(m.ok, false, 'negative Geschenke gibt es nicht');
+  m = await a.req({ t: 'gift', to: wa.userId, k: 'coin', n: 5 });
+  assert.equal(m.ok, false, 'sich selbst beschenken geht nicht');
+  m = await a.req({ t: 'gift', to: 'niemand', k: 'coin', n: 5 });
+  assert.equal(m.ok, false);
+
+  // Tauschen: Angebot -> Annehmen -> Bestätigen
+  const offer = { t: 'trade', op: 'offer', to: wb.userId, a: 'carrot', an: 3, b: 'coin', bn: 10 };
+  m = await a.req(offer);
+  assert.equal(m.ok, true);
+  const tid = m.id;
+  m = await b.next((x) => x.t === 'trade' && x.ev === 'offer');
+  assert.deepEqual([m.trade.id, m.trade.fromName, m.trade.a, m.trade.bn], [tid, 'Anna', 'carrot', 10]);
+  m = await a.req(offer);
+  assert.equal(m.ok, false, 'nur ein offenes Angebot');
+  m = await a.req({ t: 'trade', op: 'answer', id: tid, accept: true });
+  assert.equal(m.ok, false, 'nur der Empfänger darf annehmen');
+  m = await b.req({ t: 'trade', op: 'commit', id: tid, ok: true });
+  assert.equal(m.ok, false, 'bestätigen geht erst nach dem Annehmen und nur vom Anbieter');
+  m = await b.req({ t: 'trade', op: 'answer', id: tid, accept: true });
+  assert.equal(m.ok, true);
+  await a.next((x) => x.t === 'trade' && x.ev === 'accepted' && x.trade.id === tid);
+  m = await a.req({ t: 'trade', op: 'commit', id: tid, ok: true });
+  assert.equal(m.ok, true);
+  await b.next((x) => x.t === 'trade' && x.ev === 'done' && x.trade.id === tid);
+  // Ablehnen, Zurückziehen, Verfall
+  await sleep(300);
+  m = await a.req(offer);
+  await b.req({ t: 'trade', op: 'answer', id: m.id, accept: false });
+  await a.next((x) => x.t === 'trade' && x.ev === 'declined');
+  await sleep(300);
+  m = await a.req(offer);
+  assert.equal((await a.req({ t: 'trade', op: 'cancel', id: m.id })).ok, true);
+  await b.next((x) => x.t === 'trade' && x.ev === 'cancelled');
+  await sleep(300);
+  m = await a.req({ ...offer, a: 'coin' });
+  assert.equal(m.ok, false, 'gleiches gegen gleiches ist kein Tausch');
+  m = await a.req(offer);
+  await a.next((x) => x.t === 'trade' && x.ev === 'expired' && x.trade.id === m.id);
+  await b.next((x) => x.t === 'trade' && x.ev === 'expired');
+
   // Dokumente
   m = await a.req({ t: 'get', col: 'world', id: 'bridge' });
   assert.equal(m.exists, false);
@@ -175,7 +224,10 @@ try {
   assert.equal((await fetch(`http://127.0.0.1:${PORT}/..%2F..%2Fetc%2Fpasswd`)).status, 404);
 
   // Verlauf beim Anmelden: Dritter sieht die Gruppe, nicht das private Gespräch; danach verfällt alles
+  m = await a.req({ t: 'trade', op: 'offer', to: wb.userId, a: 'wood', an: 1, b: 'coin', bn: 1 });
+  assert.equal(m.ok, true);
   b.ws.close();
+  await a.next((x) => x.t === 'trade' && x.ev === 'cancelled', 3000);
   m = await a.next((x) => x.t === 'peers' && x.peers.length === 1);
   const c = client();
   await c.open;
@@ -187,7 +239,7 @@ try {
     'nur der Gruppenchat',
   );
   c.ws.close();
-  await sleep(2600);
+  await sleep(3500);
   const d = client();
   await d.open;
   d.send({ t: 'hello', password: 'geheim', token: 'token-dddddddddddddddd' });

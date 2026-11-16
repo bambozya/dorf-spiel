@@ -70,6 +70,19 @@
 
   let chatHistory = [];
   const chatListeners = new Set();
+  const giftListeners = new Set();
+  const tradeListeners = new Set();
+  const listen = (set) => (cb) => {
+    set.add(cb);
+    return () => set.delete(cb);
+  };
+  const emit = (set, arg) => {
+    for (const cb of set) {
+      try {
+        cb(arg);
+      } catch (e) {}
+    }
+  };
 
   // Für das Spiel: Uhr des Servers, Speichern des eigenen Spielstands, Chat, Mitspieler.
   const dorfServer = {
@@ -88,6 +101,11 @@
         return () => chatListeners.delete(cb);
       },
     },
+    // Schenken und Tauschen: der Server reicht nur weiter, gebucht wird im Spiel (players.js)
+    gift: (to, k, n) => request({ t: 'gift', to, k, n }),
+    onGift: listen(giftListeners),
+    trade: (body) => request({ t: 'trade', ...body }),
+    onTrade: listen(tradeListeners), // null heißt: neu angemeldet, alle Angebote sind weg
     savePlayer(st) {
       if (!connected || !st) return;
       const s = JSON.stringify(st);
@@ -175,6 +193,7 @@
         dorfServer.userId = me.userId;
         chatHistory = Array.isArray(msg.chat) ? msg.chat : [];
         for (const cb of chatListeners) cb(null); // Verlauf neu laden
+        emit(tradeListeners, null);
         peers = msg.peers;
         collections = msg.collections || {};
         if (msg.clock) dorfServer.clock = msg.clock;
@@ -197,6 +216,12 @@
             cb(msg.msg);
           } catch (e) {}
         }
+        return;
+      case 'gift':
+        emit(giftListeners, msg);
+        return;
+      case 'trade':
+        emit(tradeListeners, msg);
         return;
       case 'denied':
         login.denied = true;

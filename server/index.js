@@ -203,6 +203,146 @@ function handleChat(c, msg, res) {
   return res({ ok: true, id: m.id });
 }
 
+// ---------- Schenken und Tauschen ----------
+// Der Server reicht Geschenke und Tauschangebote nur weiter. Was jemand besitzt, weiß der Browser
+// des Spielers; dort wird abgezogen und gutgeschrieben.
+// Ein Tausch läuft in drei Schritten: Angebot -> Annehmen -> Bestätigen durch den Anbieter.
+const TRADE_TTL = Number(process.env.DORF_TRADE_TTL_MS) || 60 * 1000;
+const TRADE_COMMIT_TTL = 10 * 1000;
+const trades = new Map(); // id -> { id, from, fromName, to, toName, a, an, b, bn, state, until, fromWs, toWs }
+let tradeSeq = 0;
+
+const validThing = (k, n) =>
+  typeof k === 'string' && /^[a-z_]{1,24}$/.test(k) && Number.isInteger(n) && n >= 1 && n <= 1e6;
+const tradeInfo = (tr) => ({
+  id: tr.id,
+  from: tr.from,
+  fromName: tr.fromName,
+  to: tr.to,
+  toName: tr.toName,
+  a: tr.a,
+  an: tr.an,
+  b: tr.b,
+  bn: tr.bn,
+});
+const tradeEvent = (ws, ev, tr) => send(ws, { t: 'trade', ev, trade: tradeInfo(tr) });
+
+function socketOf(userId) {
+  for (const [ws, c] of clients) if (c.ready && c.userId === userId && ws.readyState === ws.OPEN) return ws;
+  return null;
+}
+
+// Bremse für Geschenke und Angebote
+function tooFast(c) {
+  const now = Date.now();
+  c.giveTimes = (c.giveTimes || []).filter((t) => now - t < 60 * 1000);
+  const last = c.giveTimes[c.giveTimes.length - 1];
+  if (c.giveTimes.length >= 40 || (last && now - last < 250)) return true;
+  c.giveTimes.push(now);
+  return false;
+}
+
+function recipientOf(c, msg, res) {
+  if (typeof msg.to !== 'string' || msg.to === c.userId) {
+    res({ ok: false, error: 'Ungültiger Empfänger.' });
+    return null;
+  }
+  const ws = socketOf(msg.to);
+  if (!ws) res({ ok: false, error: 'Dieser Spieler ist nicht mehr online.' });
+  return ws;
+}
+
+function handleGift(c, msg, res) {
+  if (!validThing(msg.k, msg.n)) return res({ ok: false, error: 'Ungültiges Geschenk.' });
+  const to = recipientOf(c, msg, res);
+  if (!to) return;
+  if (tooFast(c)) return res({ ok: false, error: 'Langsamer bitte.' });
+  send(to, { t: 'gift', from: c.userId, fromName: nameOf(c), k: msg.k, n: msg.n });
+  return res({ ok: true });
+}
+
+function handleTrade(ws, c, msg, res) {
+  if (msg.op === 'offer') {
+    if (!validThing(msg.a, msg.an) || !validThing(msg.b, msg.bn) || msg.a === msg.b)
+      return res({ ok: false, error: 'Ungültiges Angebot.' });
+    for (const tr of trades.values())
+      if (tr.fromWs === ws) return res({ ok: false, error: 'Du hast schon ein Angebot offen.' });
+    const to = recipientOf(c, msg, res);
+    if (!to) return;
+    if (tooFast(c)) return res({ ok: false, error: 'Langsamer bitte.' });
+    const tr = {
+      id: ++tradeSeq,
+      from: c.userId,
+      fromName: nameOf(c),
+      to: msg.to,
+      toName: nameOf(clients.get(to)),
+      a: msg.a,
+      an: msg.an,
+      b: msg.b,
+      bn: msg.bn,
+      state: 'open',
+      until: Date.now() + TRADE_TTL,
+      fromWs: ws,
+      toWs: to,
+    };
+    trades.set(tr.id, tr);
+    tradeEvent(to, 'offer', tr);
+    return res({ ok: true, id: tr.id });
+  }
+  const tr = trades.get(msg.id);
+  if (!tr) return res({ ok: false, error: 'Dieses Angebot gibt es nicht mehr.' });
+  switch (msg.op) {
+    case 'answer': {
+      if (tr.toWs !== ws || tr.state !== 'open') return res({ ok: false });
+      if (msg.accept === true) {
+        tr.state = 'accepted';
+        tr.until = Date.now() + TRADE_COMMIT_TTL;
+        tradeEvent(tr.fromWs, 'accepted', tr);
+      } else {
+        trades.delete(tr.id);
+        tradeEvent(tr.fromWs, 'declined', tr);
+      }
+      return res({ ok: true });
+    }
+    case 'commit': {
+      if (tr.fromWs !== ws || tr.state !== 'accepted') return res({ ok: false });
+      trades.delete(tr.id);
+      const there = tr.toWs.readyState === tr.toWs.OPEN;
+      tradeEvent(tr.toWs, msg.ok === true ? 'done' : 'failed', tr);
+      return res({ ok: there && msg.ok === true });
+    }
+    case 'cancel': {
+      if (tr.fromWs !== ws || tr.state !== 'open') return res({ ok: false });
+      trades.delete(tr.id);
+      tradeEvent(tr.toWs, 'cancelled', tr);
+      return res({ ok: true });
+    }
+    default:
+      return res({ ok: false, error: 'unbekannt' });
+  }
+}
+
+// Angebote, auf die niemand antwortet, verfallen.
+setInterval(() => {
+  const now = Date.now();
+  for (const tr of trades.values()) {
+    if (tr.until > now) continue;
+    trades.delete(tr.id);
+    tradeEvent(tr.fromWs, 'expired', tr);
+    tradeEvent(tr.toWs, tr.state === 'accepted' ? 'failed' : 'expired', tr);
+  }
+}, 500).unref();
+
+// Geht einer der beiden, ist das Angebot weg.
+function dropTradesOf(ws) {
+  for (const tr of trades.values()) {
+    if (tr.fromWs !== ws && tr.toWs !== ws) continue;
+    trades.delete(tr.id);
+    if (tr.fromWs === ws) tradeEvent(tr.toWs, tr.state === 'accepted' ? 'failed' : 'cancelled', tr);
+    else tradeEvent(tr.fromWs, 'cancelled', tr);
+  }
+}
+
 // ---------- Spieler ----------
 const clients = new Map(); // ws -> { peer, userId, owner, presence, alive }
 const PRESENCE_LIMIT = 2000; // Bytes pro Anwesenheits-Nachricht
@@ -336,6 +476,10 @@ function handleMessage(ws, c, raw, ip) {
     }
     case 'chat':
       return handleChat(c, msg, res);
+    case 'gift':
+      return handleGift(c, msg, res);
+    case 'trade':
+      return handleTrade(ws, c, msg, res);
     case 'ping':
       return res({ ok: true });
     default:
@@ -367,6 +511,7 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (raw) => handleMessage(ws, c, raw.toString(), ip));
   ws.on('close', () => {
     clients.delete(ws);
+    dropTradesOf(ws);
     if (c.ready) {
       peersDirty = true;
       console.log(`- ${c.userId} (${[...clients.values()].filter((x) => x.ready).length} online)`);

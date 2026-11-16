@@ -188,11 +188,5 @@ function netTick(dt) {
       room.presence(p).catch(() => {});
     }
   }
-  const on = $('online');
-  if (room && ps.length) {
-    on.hidden = false;
-    const names = [...others.values()].map((o) => o.nm || 'Jemand');
-    on.textContent = 'Online: ' + ps.length + (ps.length === 1 ? ' Spieler' : ' Spieler');
-    on.title = names.length ? 'Mit dir online: ' + names.join(', ') : 'Nur du bist gerade online';
-  } else on.hidden = true;
+  renderPlayerList(ps);
 }

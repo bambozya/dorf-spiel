@@ -1044,3 +1044,45 @@ input#pname {
   background: #fff;
   color: var(--ink);
 }
+
+/* Spielerliste im Schild oben links: wer online ist; ein Klick auf den Namen öffnet Schenken und Tauschen */
+#playerlist {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  margin: 2px 0 4px;
+  padding: 1px 6px 4px 1px;
+  max-height: min(170px, 30vh);
+  max-width: 200px;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+#playerlist button {
+  flex: none;
+  max-width: 100%;
+  font-size: 13px;
+  padding: 2px 8px;
+  border-width: 2px;
+  box-shadow: 0 2px 0 var(--ink);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+#playerlist .tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--body);
+  font-size: 11px;
+  line-height: 16px;
+}
+#playerlist .empty {
+  font-size: 12.5px;
+  opacity: 0.7;
+}
+#bPlayers.on {
+  background: var(--accent);
+}
