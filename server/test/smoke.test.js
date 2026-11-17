@@ -212,12 +212,28 @@ try {
   m = await b.next((x) => x.t === 'doc' && x.id === 'bridge' && x.data === null);
   await a.req({ t: 'set', col: 'admin', id: 'bans', data: { ids: { x: 1 } } });
 
-  // Statische Dateien
+  // Statische Dateien, mit Versionen gegen alte Browser-Caches
   const html = await fetch(`http://127.0.0.1:${PORT}/`);
   assert.equal(html.status, 200);
   assert.equal(html.headers.get('x-robots-tag'), 'noindex, nofollow');
-  assert.match(await html.text(), /js\/main\.js/);
-  assert.equal((await fetch(`http://127.0.0.1:${PORT}/js/config.js`)).status, 200);
+  assert.equal(html.headers.get('cache-control'), 'no-store');
+  const page = await html.text();
+  const ver = page.match(/src="js\/main\.js\?v=([0-9a-f]{10})"/);
+  assert.ok(ver, 'main.js hat eine Version');
+  assert.match(page, /href="css\/style\.css\?v=[0-9a-f]{10}"/);
+  const build = page.match(/name="dorf-build" content="([0-9a-f]{10})"/);
+  assert.ok(build, 'Build-Kennung steht in der Seite');
+  assert.equal(wa.build, build[1], 'Willkommen nennt dieselbe Build-Kennung');
+  const vfile = await fetch(`http://127.0.0.1:${PORT}/js/main.js?v=${ver[1]}`);
+  assert.equal(vfile.status, 200);
+  assert.match(vfile.headers.get('cache-control'), /immutable/);
+  const plain = await fetch(`http://127.0.0.1:${PORT}/js/config.js`);
+  assert.equal(plain.status, 200);
+  assert.equal(plain.headers.get('cache-control'), 'no-cache');
+  assert.equal(
+    (await fetch(`http://127.0.0.1:${PORT}/js/config.js?v=falsch`)).headers.get('cache-control'),
+    'no-cache',
+  );
   assert.equal((await fetch(`http://127.0.0.1:${PORT}/server/index.js`)).status, 404);
   assert.equal((await fetch(`http://127.0.0.1:${PORT}/server/.env.example`)).status, 404);
   assert.equal((await fetch(`http://127.0.0.1:${PORT}/.gitignore`)).status, 404);

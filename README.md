@@ -21,6 +21,8 @@ npm test                 # Rauchtest
 
 Die Anleitung für den eigenen Server (systemd-Dienst, Reverse-Proxy, Aktualisieren, Sicherung) liegt lokal im Ordner `deploy/`, der nicht im Repository ist.
 
+Gegen alte Browser-Caches hängt der Server an jede Stylesheet- und Skript-Adresse in `index.html` eine Prüfsumme des Dateiinhalts (`?v=…`). So laden alle Browser nach einem Deploy automatisch die neuen Dateien; `index.html` selbst wird nie gecacht. Ein Tab, der während eines Deploys offen bleibt, lädt sich beim Wiederverbinden einmal neu, weil der Server seine Build-Kennung mitschickt.
+
 Spieler müssen sich nicht registrieren: jedes Gerät bekommt beim ersten Besuch eine zufällige Kennung (localStorage), daraus macht der Server die Spieler-Kennung.
 
 ## Aufbau

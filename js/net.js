@@ -187,6 +187,11 @@
   function handle(msg, password) {
     switch (msg.t) {
       case 'welcome': {
+        // Läuft auf dem Server inzwischen eine neuere Version als in diesem Tab? Dann einmal neu laden.
+        if (isStaleBuild(msg.build)) {
+          location.reload();
+          return;
+        }
         connected = true;
         backoff = 1000;
         me = { peer: msg.peer, userId: msg.userId, owner: msg.owner };
@@ -249,6 +254,19 @@
         return;
       }
     }
+  }
+
+  function isStaleBuild(serverBuild) {
+    const meta = document.querySelector('meta[name="dorf-build"]');
+    const mine = meta && meta.content;
+    if (!mine || !serverBuild || mine === serverBuild) return false;
+    // Schutz vor Endlosschleifen: pro Build nur einmal neu laden
+    let already = null;
+    try {
+      already = sessionStorage.getItem('younes-dorf-reloaded');
+      sessionStorage.setItem('younes-dorf-reloaded', serverBuild);
+    } catch (e) {}
+    return already !== serverBuild;
   }
 
   function notifyPeers() {

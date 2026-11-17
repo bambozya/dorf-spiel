@@ -85,6 +85,45 @@ const MIME = {
   '.ico': 'image/x-icon',
 };
 
+// ---------- Versionen für css/ und js/ ----------
+// Jede Datei bekommt in index.html ein ?v=<Prüfsumme ihres Inhalts>. Ändert sich die Datei, ändert
+// sich die Adresse, und jeder Browser lädt sie neu. Versionierte Dateien dürfen ewig im Cache bleiben,
+// index.html selbst nie. Aus allen Prüfsummen entsteht eine Build-Kennung, die der Client beim
+// Anmelden mit seiner eigenen vergleicht (siehe net.js): nach einem Deploy lädt ein offener Tab neu.
+const assetCache = new Map(); // Pfad -> { mtimeMs, hash }
+
+function assetHash(rel) {
+  const file = path.join(CONFIG.webRoot, rel);
+  try {
+    const st = fs.statSync(file);
+    const cached = assetCache.get(rel);
+    if (cached && cached.mtimeMs === st.mtimeMs) return cached.hash;
+    const hash = crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 10);
+    assetCache.set(rel, { mtimeMs: st.mtimeMs, hash });
+    return hash;
+  } catch (e) {
+    return null;
+  }
+}
+
+function versionedIndex() {
+  const html = fs.readFileSync(path.join(CONFIG.webRoot, 'index.html'), 'utf8');
+  const hashes = [];
+  const out = html.replace(/(href|src)="((?:css|js)\/[^"?]+)"/g, (m, attr, rel) => {
+    const h = assetHash(rel);
+    if (!h) return m;
+    hashes.push(rel + '@' + h);
+    return `${attr}="${rel}?v=${h}"`;
+  });
+  const build = crypto.createHash('sha1').update(hashes.join('\n')).digest('hex').slice(0, 10);
+  return {
+    html: out.replace('</head>', `    <meta name="dorf-build" content="${build}" />\n  </head>`),
+    build,
+  };
+}
+
+const buildId = () => versionedIndex().build;
+
 function serveStatic(req, res) {
   const url = new URL(req.url, 'http://localhost');
   let rel = decodeURIComponent(url.pathname);
@@ -93,11 +132,21 @@ function serveStatic(req, res) {
   const inside = file.startsWith(CONFIG.webRoot + path.sep);
   const hidden = rel.split('/').some((part) => part.startsWith('.') || part === 'server');
   if (!inside || hidden) return reply(res, 404, 'Nicht gefunden');
+  if (rel === '/index.html') {
+    const { html } = versionedIndex();
+    res.writeHead(200, {
+      'Content-Type': MIME['.html'],
+      'Cache-Control': 'no-store',
+      'X-Robots-Tag': 'noindex, nofollow',
+    });
+    return res.end(html);
+  }
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) return reply(res, 404, 'Nicht gefunden');
+    const versioned = url.searchParams.get('v') && url.searchParams.get('v') === assetHash(rel.slice(1));
     res.writeHead(200, {
       'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': versioned ? 'public, max-age=31536000, immutable' : 'no-cache',
       'X-Robots-Tag': 'noindex, nofollow',
     });
     fs.createReadStream(file).pipe(res);
@@ -403,6 +452,7 @@ function handleHello(ws, c, msg, ip) {
     collections: publicCollections(),
     clock: { day: clock.day, time: +clock.t.toFixed(4) },
     chat: chatFor(c.userId),
+    build: buildId(),
   });
   peersDirty = true;
   console.log(`+ ${c.userId} (${online + 1} online)`);
